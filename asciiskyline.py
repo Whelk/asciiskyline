@@ -15,7 +15,7 @@ curses.cbreak()
 curses.noecho()  # dont print pressed keys
 curses.start_color()
 
-helpmsg = "Commands: r:reset skyline, q:quit, +:speed up, -:speed down, s:reset speed, f:toggle flasher, d:debug"
+helpmsg = "Commands: r:reset skyline, f:firework, q:quit, +:speed up, -:speed down, s:reset speed, F:toggle flasher, d:debug"
 
 # star colors
 curses.init_pair(1, 14, curses.COLOR_BLACK)
@@ -27,6 +27,18 @@ curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 
 # flasher color
 curses.init_pair(5, curses.COLOR_RED, curses.COLOR_BLACK)
+
+# dead firework color
+curses.init_pair(6, 8, curses.COLOR_BLACK)
+
+# fireworks colors
+curses.init_pair(7, 9, curses.COLOR_BLACK)
+curses.init_pair(8, 21, curses.COLOR_BLACK)
+curses.init_pair(9, 7, curses.COLOR_BLACK)
+curses.init_pair(10, 10, curses.COLOR_BLACK)
+curses.init_pair(11, 199, curses.COLOR_BLACK)
+curses.init_pair(12, 129, curses.COLOR_BLACK)
+
 
 rows, cols = screen.getmaxyx()
 
@@ -56,6 +68,9 @@ class Skyline:
     flasher_rate = 100
     flasher_state = 0
 
+    fireworks = []
+    firework_rate = 15
+
     display_message = {}
 
     speed = 10
@@ -75,6 +90,33 @@ def behindBuilding(position_x, position_y):
             if position_y in rangey:
                 return True
     return False
+
+
+def drawSym(x, y, symbol, color=None, background=True):
+    if background and behindBuilding(x, y):
+        return
+    if color:
+        color = curses.color_pair(color)
+        try:
+            screen.addstr(
+                y,
+                x,
+                symbol,
+                color,
+            )
+        except:
+            pass
+    else:
+        try:
+            screen.addstr(
+                y,
+                x,
+                symbol,
+            )
+        except:
+            pass
+
+    return
 
 
 def makeBuilding(position_x):
@@ -120,6 +162,7 @@ def setupSkyline():
     # make all the buildings
     skyline.buildings = []
     skyline.stars = []
+    skyline.fireworks = []
     blds = 0
     position_x = 0
     while position_x < skyline.cols:
@@ -279,6 +322,178 @@ def displayMessage(message, msgtype="default", x=0, y=0, duration=0):
     return
 
 
+def spawnFirework(x=0, y=0, color=None):
+    if not color:
+        color = random.randint(7, 12)
+
+    if not x and not y:
+        x = random.randint(1, skyline.cols)
+        y = skyline.rows - (random.randint(skyline.flasher_position[1], skyline.rows))
+
+    skyline.fireworks.append(
+        {
+            "x": x,
+            "y": y,
+            "color": color,
+            "stage": 0,
+            "rays": [],
+        }
+    )
+
+
+def fireworks():
+    for firework in list(skyline.fireworks):
+        fw_x = firework["x"]
+        fw_y = firework["y"]
+        if firework["stage"] == 0:
+            drawSym(
+                fw_x,
+                fw_y,
+                ".",
+                firework["color"],
+            )
+        elif firework["stage"] == 1:
+            drawSym(
+                fw_x,
+                fw_y,
+                "o",
+                firework["color"],
+            )
+        elif firework["stage"] == 2:
+            drawSym(
+                fw_x,
+                fw_y,
+                "*",
+                firework["color"],
+            )
+            ray_x = fw_x - 1
+            ray_y = fw_y - 1
+            for ray in ["\\", "|", "/"]:
+                firework["rays"].append([ray_x, ray_y])
+                drawSym(
+                    ray_x,
+                    ray_y,
+                    ray,
+                    firework["color"],
+                )
+                ray_x += 1
+
+            ray_x = fw_x - 1
+            ray_y = fw_y + 0
+            for ray in ["-", "-"]:
+                firework["rays"].append([ray_x, ray_y])
+                drawSym(
+                    ray_x,
+                    ray_y,
+                    ray,
+                    firework["color"],
+                )
+                ray_x += 2
+
+            ray_x = fw_x - 1
+            ray_y = fw_y + 1
+            for ray in ["/", "|", "\\"]:
+                firework["rays"].append([ray_x, ray_y])
+                drawSym(
+                    ray_x,
+                    ray_y,
+                    ray,
+                    firework["color"],
+                )
+                ray_x += 1
+
+        elif firework["stage"] == 3:
+            for ray in list(firework["rays"]):
+                drawSym(ray[0], ray[1], " ")
+                firework["rays"].remove(ray)
+
+            drawSym(
+                fw_x,
+                fw_y,
+                " ",
+                firework["color"],
+            )
+            ray_x = fw_x - 2
+            ray_y = fw_y - 2
+            for ray in ["\\", "|", "/"]:
+                firework["rays"].append([ray_x, ray_y])
+                drawSym(
+                    ray_x,
+                    ray_y,
+                    ray,
+                    firework["color"],
+                )
+                ray_x += 2
+
+            ray_x = fw_x - 3
+            ray_y = fw_y + 0
+            for ray in ["-", "-"]:
+                firework["rays"].append([ray_x, ray_y])
+                drawSym(
+                    ray_x,
+                    ray_y,
+                    ray,
+                    firework["color"],
+                )
+                ray_x += 6
+
+            ray_x = fw_x - 2
+            ray_y = fw_y + 2
+            for ray in ["/", "|", "\\"]:
+                firework["rays"].append([ray_x, ray_y])
+                drawSym(
+                    ray_x,
+                    ray_y,
+                    ray,
+                    firework["color"],
+                )
+                ray_x += 2
+
+        elif firework["stage"] == 4:
+            for ray in firework["rays"]:
+                drawSym(
+                    ray[0],
+                    ray[1],
+                    ".",
+                    firework["color"],
+                )
+        elif firework["stage"] == 5:
+            for ray in firework["rays"]:
+                drawSym(ray[0], ray[1], " ")
+                drawSym(
+                    ray[0],
+                    ray[1] + 1,
+                    ".",
+                    firework["color"],
+                )
+        elif firework["stage"] == 6:
+            for ray in firework["rays"]:
+                drawSym(ray[0], ray[1] + 1, " ")
+                drawSym(
+                    ray[0],
+                    ray[1] + 2,
+                    ".",
+                    firework["color"],
+                )
+        elif firework["stage"] == 7:
+            for ray in firework["rays"]:
+                drawSym(ray[0], ray[1] + 2, " ")
+                drawSym(ray[0], ray[1] + 3, ".", 6)
+
+        else:
+
+            for ray in list(firework["rays"]):
+                drawSym(ray[0], ray[1] + 3, " ")
+                firework["rays"].remove(ray)
+
+            drawSym(fw_x, fw_y, " ")
+            skyline.fireworks.remove(firework)
+
+        firework["stage"] += 1
+
+    return
+
+
 def main(screen):
     #####
     # main loop
@@ -295,6 +510,9 @@ def main(screen):
 
         if skyline.flasher_position and not skyline.tick % skyline.flasher_rate:
             flasherLoop()
+
+        if not skyline.tick % skyline.firework_rate:
+            fireworks()
 
         if skyline.debug:
             debugmsg = f"Stars:{len(skyline.stars)}/{skyline.star_max} Bldgs:{len(skyline.buildings)} Size:{skyline.cols}x{skyline.rows}"
@@ -346,8 +564,8 @@ def main(screen):
                 adjust = 10
             skyline.speed += adjust
             displayMessage(f"Tick length is now: {skyline.speed}")
-        # f: toggle tallest building flasher
-        elif key == 102:
+        # F: toggle tallest building flasher
+        elif key == 70:
             if skyline.flasher:
                 skyline.flasher = False
                 displayMessage(f"Tallest building flasher OFF.")
@@ -363,6 +581,10 @@ def main(screen):
             if key == curses.KEY_RESIZE:
                 msg = f"Terminal size changed: {msg}"
             displayMessage(msg)
+        # f: firework
+        elif key == 102:
+            spawnFirework()
+
         # d: debug
         elif key == 100:
             if skyline.debug:
