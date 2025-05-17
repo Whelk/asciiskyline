@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 """
-Creates a little starry city skyline in your terminal, just because it's nice to look at.  Inspired by the Starry Skyline module of the After Dark screensavers of old.  Uses curses.  Original author: whelk
+Creates a little starry city skyline in your terminal, just because it's nice to look at.  Inspired by the Starry Skyline module of the After Dark screensavers of old.  Uses curses.
+Original author: whelk, who couldn't sleep on the night of 2025-05-16
 """
 
 import curses, os, random
@@ -163,16 +164,10 @@ def starLoop():
         screen.addstr(poofstar[1], poofstar[0], " ")
         skyline.stars.remove(poofstar)
 
+    return
 
-#####
-# main loop
-while True:
 
-    curses.curs_set(0)
-    skyline.tick += 1
-
-    starLoop()
-
+def officeLoop():
     for building in skyline.buildings:
         if len(building["offices_unlit"]) > building["unlit_min"]:
 
@@ -203,6 +198,20 @@ while True:
             )
             building["offices_lit"].remove(poofwindow)
             building["offices_unlit"].append(poofwindow)
+
+
+#####
+# main loop
+while True:
+
+    curses.curs_set(0)
+    skyline.tick += 1
+
+    if not skyline.tick % skyline.star_rate:
+        starLoop()
+
+    if not skyline.tick % skyline.office_rate:
+        officeLoop()
 
     if skyline.flasher and skyline.flasher_position:
         if not skyline.tick % skyline.flasher_rate:
