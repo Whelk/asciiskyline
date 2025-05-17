@@ -8,10 +8,12 @@ Inspired by the Starry Skyline module of the After Dark screensavers of old.  Se
 ### Keyboard Shortcuts
 Key | Function
 --- | ---
+`?` | help
 `r` | reset skyline
+`f` | set off firework
 `+` | increase speed
 `-` | decrease speed
 `s` | reset speed
-`f` | toggle flasher
+`F` | toggle flasher
 `d` | toggle debug mode
 `q` | quit
