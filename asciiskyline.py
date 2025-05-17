@@ -34,25 +34,25 @@ class Skyline:
     window_y = num_rows
 
     stars = []
-    star_rate = 2
+    star_rate = 4
     star_chars = ["*"] * 1 + ["."] * 6 + ["+"] * 3
     star_max = int((window_x * window_y) / 50)
 
     buildings = []
     office_chars = ["#", "█"]
-    office_rate = 4
+    office_rate = 8
 
     meteoroid = None
 
     flasher = True  # do you want the tallest building to have a blinking flasher light up top?
     flasher_char = "o"
     flasher_position = None
-    flasher_rate = 15
+    flasher_rate = 100
     flasher_state = 0
 
     fullscreen = False
     display_message = None
-    speed = 60
+    speed = 10
 
     tick = 0
 
@@ -236,7 +236,7 @@ while True:
         screen.addstr(0, 0, debugmsg)
 
     screen.refresh()
-    curses.napms(100)
+    curses.napms(skyline.speed)
     if skyline.tick > 999:
         skyline.tick = 0
 # main loop
