@@ -290,7 +290,7 @@ def main(screen):
             flasherLoop()
 
         if skyline.debug:
-            debugmsg = f"Stars: {len(skyline.stars)}/{skyline.star_max} Buildings: {len(skyline.buildings)}"
+            debugmsg = f"Stars:{len(skyline.stars)}/{skyline.star_max} Bldgs:{len(skyline.buildings)} Size:{num_cols}x{num_rows}"
             displayMessage(
                 debugmsg,
                 msgtype="debug",
