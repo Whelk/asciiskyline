@@ -6,4 +6,5 @@ Inspired by the Starry Skyline module of the After Dark screensavers of old.  Se
 ### Keyboard Shortcuts
 Key | Function
 --- | ---
-`ctrl-c` | quit (because I haven't added actual controls yet)
+`d` | toggle debug mode
+`q` | quit
