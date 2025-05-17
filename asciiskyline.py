@@ -355,10 +355,14 @@ def main(screen):
                 skyline.flasher = True
                 displayMessage(f"Tallest building flasher ON.")
         # r: reset skyline
-        elif key == 114:
+        elif key in [114, curses.KEY_RESIZE]:
             screen.clear()
+            skyline.rows, skyline.cols = screen.getmaxyx()
             setupSkyline()
-            displayMessage(f"Skyline reset.")
+            msg = "Skyline reset."
+            if key == curses.KEY_RESIZE:
+                msg = f"Terminal size changed: {msg}"
+            displayMessage(msg)
         # d: debug
         elif key == 100:
             if skyline.debug:
