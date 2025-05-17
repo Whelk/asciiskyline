@@ -6,6 +6,7 @@ Original author: whelk, who couldn't sleep on the night of 2025-05-16
 """
 
 import curses, os, random
+from curses import wrapper
 
 screen = curses.initscr()
 screen.nodelay(True)
@@ -270,77 +271,73 @@ def displayMessage(message, msgtype="default", x=0, y=0, duration=0):
     return
 
 
-def tearDown():
-    curses.echo()
-    curses.nocbreak()
-    curses.curs_set(1)
-    curses.endwin()
-    exit()
+def main(screen):
+    #####
+    # main loop
+    while True:
 
+        curses.curs_set(0)
+        skyline.tick += 1
 
-#####
-# main loop
-while True:
+        if not skyline.tick % skyline.star_rate:
+            starLoop()
 
-    curses.curs_set(0)
-    skyline.tick += 1
+        if not skyline.tick % skyline.office_rate:
+            officeLoop()
 
-    if not skyline.tick % skyline.star_rate:
-        starLoop()
+        if (
+            skyline.flasher
+            and skyline.flasher_position
+            and not skyline.tick % skyline.flasher_rate
+        ):
+            flasherLoop()
 
-    if not skyline.tick % skyline.office_rate:
-        officeLoop()
-
-    if (
-        skyline.flasher
-        and skyline.flasher_position
-        and not skyline.tick % skyline.flasher_rate
-    ):
-        flasherLoop()
-
-    if skyline.debug:
-        debugmsg = f"Stars: {len(skyline.stars)}/{skyline.star_max} Buildings: {len(skyline.buildings)}"
-        displayMessage(
-            debugmsg,
-            msgtype="debug",
-            x=num_cols - len(debugmsg),
-            y=0,
-            duration=10,
-        )
-
-    displayMessageLoop()
-
-    screen.refresh()
-    curses.napms(skyline.speed)
-    if skyline.tick > 999:
-        skyline.tick = 0
-
-    key = screen.getch()
-    # no key pressed
-    if key == -1:
-        pass
-    # q: quit
-    elif key == 113:
-        tearDown()
-    # h: hi
-    elif key == 104:
-        displayMessage("Hello there!", msgtype="hi", x=0, y=1)
-    # d: debug
-    elif key == 100:
         if skyline.debug:
-            skyline.debug = False
-            msg = "Debug mode: OFF"
-            displayMessage(" ", msgtype="debug", x=num_cols - 1, y=0)
+            debugmsg = f"Stars: {len(skyline.stars)}/{skyline.star_max} Buildings: {len(skyline.buildings)}"
+            displayMessage(
+                debugmsg,
+                msgtype="debug",
+                x=num_cols - len(debugmsg),
+                y=0,
+                duration=10,
+            )
+
+        displayMessageLoop()
+
+        screen.refresh()
+        curses.napms(skyline.speed)
+        if skyline.tick > 999:
+            skyline.tick = 0
+
+        key = screen.getch()
+        # no key pressed
+        if key == -1:
+            pass
+        # q: quit
+        elif key == 113:
+            exit()
+        # h: hi
+        elif key == 104:
+            displayMessage("Hello there!", msgtype="hi", x=0, y=1)
+        # d: debug
+        elif key == 100:
+            if skyline.debug:
+                skyline.debug = False
+                msg = "Debug mode: OFF"
+                displayMessage(" ", msgtype="debug", x=num_cols - 1, y=0)
+            else:
+                skyline.debug = True
+                msg = "Debug mode: ON"
+
+            displayMessage(msg)
+        # unused key: show help msg
         else:
-            skyline.debug = True
-            msg = "Debug mode: ON"
+            msg = helpmsg + ""
+            if skyline.debug:
+                msg += f" (key pressed: {key})"
+            displayMessage(f"{msg}")
+    # main loop
+    #####
 
-        displayMessage(msg)
-    # unused key: show help msg
-    else:
-        msg = helpmsg + ""
-        if skyline.debug:
-            msg += f" (key pressed: {key})"
-        displayMessage(f"{msg}")
-# main loop
-#####
+
+wrapper(main)
