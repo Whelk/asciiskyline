@@ -311,7 +311,7 @@ def main(screen):
         if key == -1:
             pass
         # q: quit
-        elif key == 113:
+        elif key in [113, 27]:
             exit()
         # h: hi
         elif key == 104:
