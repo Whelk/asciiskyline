@@ -1,3 +1,5 @@
+![](https://github.com/Whelk/demo.gif)
+
 # asciiskyline
 ASCII Skyline - Another recreation of an old screensaver from our home computer when I was a kid, but this time in curses/ASCII.  It produces a simple starry city skyline in your terminal, with the stars winking in and out and the lights in the office windows of the buildings below going on and off as their occupants go about whatever business they're up to.
 
