@@ -8,6 +8,7 @@ Inspired by the Starry Skyline module of the After Dark screensavers of old.  Se
 ### Keyboard Shortcuts
 Key | Function
 --- | ---
+`r` | reset skyline
 `+` | increase speed
 `-` | decrease speed
 `s` | reset speed

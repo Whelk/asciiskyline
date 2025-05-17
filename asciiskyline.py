@@ -28,7 +28,7 @@ curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 # flasher color
 curses.init_pair(5, curses.COLOR_RED, curses.COLOR_BLACK)
 
-num_rows, num_cols = screen.getmaxyx()
+rows, cols = screen.getmaxyx()
 
 
 class Skyline:
@@ -36,13 +36,13 @@ class Skyline:
     debug = False
 
     screen = None
-    window_x = num_cols
-    window_y = num_rows
+
+    rows, cols = rows, cols
 
     stars = []
     star_rate = 4
     star_chars = ["*"] * 1 + ["."] * 6 + ["+"] * 3
-    star_max = int((window_x * window_y) / 50)
+    star_max = int((cols * rows) / 50)
 
     buildings = []
     office_chars = ["#", "█"]
@@ -71,7 +71,7 @@ def behindBuilding(position_x, position_y):
         if position_x in range(
             building["position_x"], building["position_x"] + building["width"]
         ):
-            rangey = range(num_rows - building["height"], num_rows)
+            rangey = range(skyline.rows - building["height"], skyline.rows)
             if position_y in rangey:
                 return True
     return False
@@ -103,7 +103,7 @@ def makeBuilding(position_x):
     }
     skyline.buildings.append(building)
     for loop in range(building_width):
-        if loop + position_x > num_cols:
+        if loop + position_x > skyline.cols:
             break
         for loop in range(building_height):
             cur_height += 1
@@ -114,38 +114,45 @@ def makeBuilding(position_x):
     return cur_width
 
 
-#####
-# make all the buildings
-blds = 0
-position_x = 0
-while position_x < num_cols:
-    blds += 1
-    try:
-        position_x = position_x + makeBuilding(position_x)
-    except:
-        break
+def setupSkyline():
 
-tallest_building = None
-for building in skyline.buildings:
-    if not tallest_building or building["height"] > tallest_building["height"]:
-        tallest_building = building
-if tallest_building:
-    skyline.tallest_building = tallest_building
-    skyline.flasher_position = [
-        tallest_building["position_x"] + int(tallest_building["width"] / 2),
-        tallest_building["height"] + 1,
-    ]
+    #####
+    # make all the buildings
+    skyline.buildings = []
+    skyline.stars = []
+    blds = 0
+    position_x = 0
+    while position_x < skyline.cols:
+        blds += 1
+        try:
+            position_x = position_x + makeBuilding(position_x)
+        except:
+            break
 
-# make all the buildings
-#####
+    tallest_building = None
+    for building in skyline.buildings:
+        if not tallest_building or building["height"] > tallest_building["height"]:
+            tallest_building = building
+    if tallest_building:
+        skyline.tallest_building = tallest_building
+        skyline.flasher_position = [
+            tallest_building["position_x"] + int(tallest_building["width"] / 2),
+            tallest_building["height"] + 1,
+        ]
+
+    # make all the buildings
+    #####
+
+
+setupSkyline()
 
 
 def starLoop():
     starchar = random.choice(skyline.star_chars)
-    nstar_x = random.choice(range(num_cols))
-    if nstar_x >= num_cols:
+    nstar_x = random.choice(range(skyline.cols))
+    if nstar_x >= skyline.cols:
         nstar_x -= 1
-    nstar_y = num_rows - random.choice(range(num_rows)) - 1
+    nstar_y = skyline.rows - random.choice(range(skyline.rows)) - 1
     coords = [nstar_x, nstar_y]
 
     # add a star
@@ -184,7 +191,7 @@ def officeLoop():
             unlit = random.choice(office_choices)
             try:
                 screen.addstr(
-                    num_rows - unlit[1],
+                    skyline.rows - unlit[1],
                     building["position_x"] + unlit[0],
                     building["window"],
                     curses.color_pair(3),
@@ -197,7 +204,7 @@ def officeLoop():
         elif building["offices_lit"] and random.randint(1, 100) > 98:
             poofwindow = random.choice(building["offices_lit"])
             screen.addstr(
-                num_rows - poofwindow[1],
+                skyline.rows - poofwindow[1],
                 building["position_x"] + poofwindow[0],
                 " ",
             )
@@ -211,7 +218,7 @@ def flasherLoop():
     if not skyline.flasher_state:
         if skyline.flasher:
             screen.addstr(
-                num_rows - skyline.flasher_position[1],
+                skyline.rows - skyline.flasher_position[1],
                 skyline.flasher_position[0],
                 skyline.flasher_char,
                 curses.color_pair(5),
@@ -219,7 +226,7 @@ def flasherLoop():
             skyline.flasher_state = 1
     else:
         screen.addstr(
-            num_rows - skyline.flasher_position[1],
+            skyline.rows - skyline.flasher_position[1],
             skyline.flasher_position[0],
             " ",
         )
@@ -290,11 +297,11 @@ def main(screen):
             flasherLoop()
 
         if skyline.debug:
-            debugmsg = f"Stars:{len(skyline.stars)}/{skyline.star_max} Bldgs:{len(skyline.buildings)} Size:{num_cols}x{num_rows}"
+            debugmsg = f"Stars:{len(skyline.stars)}/{skyline.star_max} Bldgs:{len(skyline.buildings)} Size:{skyline.cols}x{skyline.rows}"
             displayMessage(
                 debugmsg,
                 msgtype="debug",
-                x=num_cols - len(debugmsg),
+                x=skyline.cols - len(debugmsg),
                 y=0,
                 duration=10,
             )
@@ -347,12 +354,17 @@ def main(screen):
             else:
                 skyline.flasher = True
                 displayMessage(f"Tallest building flasher ON.")
+        # r: reset skyline
+        elif key == 114:
+            screen.clear()
+            setupSkyline()
+            displayMessage(f"Skyline reset.")
         # d: debug
         elif key == 100:
             if skyline.debug:
                 skyline.debug = False
                 msg = "Debug mode: OFF"
-                displayMessage(" ", msgtype="debug", x=num_cols - 1, y=0)
+                displayMessage(" ", msgtype="debug", x=skyline.cols - 1, y=0)
             else:
                 skyline.debug = True
                 msg = "Debug mode: ON"
