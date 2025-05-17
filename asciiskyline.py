@@ -199,6 +199,28 @@ def officeLoop():
             building["offices_lit"].remove(poofwindow)
             building["offices_unlit"].append(poofwindow)
 
+    return
+
+
+def flasherLoop():
+    if not skyline.flasher_state:
+        screen.addstr(
+            num_rows - skyline.flasher_position[1],
+            skyline.flasher_position[0],
+            skyline.flasher_char,
+            curses.color_pair(5),
+        )
+        skyline.flasher_state = 1
+    else:
+        screen.addstr(
+            num_rows - skyline.flasher_position[1],
+            skyline.flasher_position[0],
+            " ",
+        )
+        skyline.flasher_state = 0
+
+    return
+
 
 #####
 # main loop
@@ -213,23 +235,12 @@ while True:
     if not skyline.tick % skyline.office_rate:
         officeLoop()
 
-    if skyline.flasher and skyline.flasher_position:
-        if not skyline.tick % skyline.flasher_rate:
-            if not skyline.flasher_state:
-                screen.addstr(
-                    num_rows - skyline.flasher_position[1],
-                    skyline.flasher_position[0],
-                    skyline.flasher_char,
-                    curses.color_pair(5),
-                )
-                skyline.flasher_state = 1
-            else:
-                screen.addstr(
-                    num_rows - skyline.flasher_position[1],
-                    skyline.flasher_position[0],
-                    " ",
-                )
-                skyline.flasher_state = 0
+    if (
+        skyline.flasher
+        and skyline.flasher_position
+        and not skyline.tick % skyline.flasher_rate
+    ):
+        flasherLoop()
 
     if skyline.debug:
         debugmsg = f"Max stars: {skyline.star_max} Current stars: {len(skyline.stars)}"
