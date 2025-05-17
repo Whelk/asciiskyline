@@ -15,7 +15,7 @@ curses.cbreak()
 curses.noecho()  # dont print pressed keys
 curses.start_color()
 
-helpmsg = "Commands: q:quit, d:debug, +:speed up, -:speed down, s:reset speed, f:toggle flasher"
+helpmsg = "Commands: r:reset skyline, q:quit, +:speed up, -:speed down, s:reset speed, f:toggle flasher, d:debug"
 
 # star colors
 curses.init_pair(1, 14, curses.COLOR_BLACK)
