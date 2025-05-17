@@ -15,7 +15,7 @@ curses.cbreak()
 curses.noecho()  # dont print pressed keys
 curses.start_color()
 
-helpmsg = "Commands: q: quit, d: debug, +: speed up, -: speed down, s: reset speed"
+helpmsg = "Commands: q: quit, d: debug, +: speed up, -: speed down, s: reset speed, f: toggle flasher"
 
 # star colors
 curses.init_pair(1, 14, curses.COLOR_BLACK)
@@ -209,13 +209,14 @@ def officeLoop():
 
 def flasherLoop():
     if not skyline.flasher_state:
-        screen.addstr(
-            num_rows - skyline.flasher_position[1],
-            skyline.flasher_position[0],
-            skyline.flasher_char,
-            curses.color_pair(5),
-        )
-        skyline.flasher_state = 1
+        if skyline.flasher:
+            screen.addstr(
+                num_rows - skyline.flasher_position[1],
+                skyline.flasher_position[0],
+                skyline.flasher_char,
+                curses.color_pair(5),
+            )
+            skyline.flasher_state = 1
     else:
         screen.addstr(
             num_rows - skyline.flasher_position[1],
@@ -285,11 +286,7 @@ def main(screen):
         if not skyline.tick % skyline.office_rate:
             officeLoop()
 
-        if (
-            skyline.flasher
-            and skyline.flasher_position
-            and not skyline.tick % skyline.flasher_rate
-        ):
+        if skyline.flasher_position and not skyline.tick % skyline.flasher_rate:
             flasherLoop()
 
         if skyline.debug:
@@ -342,6 +339,14 @@ def main(screen):
                 adjust = 10
             skyline.speed += adjust
             displayMessage(f"Tick length is now: {skyline.speed}")
+        # f: toggle tallest building flasher
+        elif key == 102:
+            if skyline.flasher:
+                skyline.flasher = False
+                displayMessage(f"Tallest building flasher OFF.")
+            else:
+                skyline.flasher = True
+                displayMessage(f"Tallest building flasher ON.")
         # d: debug
         elif key == 100:
             if skyline.debug:

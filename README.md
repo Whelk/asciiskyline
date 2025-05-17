@@ -11,5 +11,6 @@ Key | Function
 `+` | increase speed
 `-` | decrease speed
 `s` | reset speed
+`f` | toggle flasher
 `d` | toggle debug mode
 `q` | quit
