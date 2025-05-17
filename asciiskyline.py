@@ -15,7 +15,7 @@ curses.cbreak()
 curses.noecho()  # dont print pressed keys
 curses.start_color()
 
-helpmsg = "Commands: q: quit, d: debug"
+helpmsg = "Commands: q: quit, d: debug, +: speed up, -: speed down, s: reset speed"
 
 # star colors
 curses.init_pair(1, 14, curses.COLOR_BLACK)
@@ -319,6 +319,29 @@ def main(screen):
         # h: hi
         elif key == 104:
             displayMessage("Hello there!", msgtype="hi", x=0, y=1)
+        # s: speed to default
+        elif key == 115:
+            displayMessage("Speed set to default.")
+            skyline.speed = skyline.default_speed + 0
+        # +/=: increase speed (technically decrease wait time beetween ticks)
+        elif key in [61, 43]:
+            current = skyline.speed
+            adjust = 1
+            if current > 10:
+                adjust = 10
+            if skyline.speed <= 1:
+                displayMessage("Can't go any faster!!")
+            else:
+                skyline.speed -= adjust
+                displayMessage(f"Tick length is now: {skyline.speed}")
+        # -/_: decrease speed (technically increase wait time beetween ticks)
+        elif key in [45, 95]:
+            adjust = 1
+            current = skyline.speed
+            if current >= 10:
+                adjust = 10
+            skyline.speed += adjust
+            displayMessage(f"Tick length is now: {skyline.speed}")
         # d: debug
         elif key == 100:
             if skyline.debug:
