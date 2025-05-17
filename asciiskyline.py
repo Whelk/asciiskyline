@@ -8,8 +8,13 @@ Original author: whelk, who couldn't sleep on the night of 2025-05-16
 import curses, os, random
 
 screen = curses.initscr()
+screen.nodelay(True)
 
+curses.cbreak()
+curses.noecho()  # dont print pressed keys
 curses.start_color()
+
+helpmsg = "Commands: q: quit"
 
 # star colors
 curses.init_pair(1, 14, curses.COLOR_BLACK)
@@ -50,10 +55,11 @@ class Skyline:
     flasher_rate = 100
     flasher_state = 0
 
-    fullscreen = False
     display_message = None
-    speed = 10
+    display_message_time = 0
+    display_message_coords = []
 
+    speed = 10
     tick = 0
 
 
@@ -222,6 +228,55 @@ def flasherLoop():
     return
 
 
+def displayMessageLoop():
+    if not skyline.display_message:
+        return
+    screen.addstr(
+        skyline.display_message_coords[1],
+        skyline.display_message_coords[0],
+        skyline.display_message,
+    )
+    skyline.display_message_time += 1
+    if skyline.display_message_time >= 100:
+        screen.addstr(
+            skyline.display_message_coords[1],
+            skyline.display_message_coords[0],
+            " " * len(skyline.display_message),
+        )
+        skyline.display_message_time = 0
+        skyline.display_message = None
+        skyline.display_message_coords = []
+
+    return
+
+
+def displayMessage(message, x=0, y=0):
+    # clean up previous message if it exists
+    if skyline.display_message and (
+        skyline.display_message != message or skyline.display_message_coords != [x, y]
+    ):
+        screen.addstr(
+            skyline.display_message_coords[1],
+            skyline.display_message_coords[0],
+            " " * len(skyline.display_message),
+        )
+
+    # set display message for displayMessageLoop() to handle
+    skyline.display_message = message
+    skyline.display_message_time = 0
+    skyline.display_message_coords = [x, y]
+
+    return
+
+
+def tearDown():
+    curses.echo()
+    curses.nocbreak()
+    curses.curs_set(1)
+    curses.endwin()
+    exit()
+
+
 #####
 # main loop
 while True:
@@ -242,16 +297,34 @@ while True:
     ):
         flasherLoop()
 
+    displayMessageLoop()
+
     if skyline.debug:
         debugmsg = f"Max stars: {skyline.star_max} Current stars: {len(skyline.stars)}"
-        screen.addstr(0, 0, debugmsg)
+        screen.addstr(0, num_cols - len(debugmsg), debugmsg)
 
     screen.refresh()
     curses.napms(skyline.speed)
     if skyline.tick > 999:
         skyline.tick = 0
+
+    key = screen.getch()
+    if key == -1:
+        pass
+    elif key == 113:
+        tearDown()
+    elif key == 100:
+        if skyline.debug:
+            skyline.debug = False
+            msg = "Debug mode: OFF"
+        else:
+            skyline.debug = True
+            msg = "Debug mode: ON"
+        displayMessage(msg)
+    else:
+        msg = helpmsg + ""
+        if skyline.debug:
+            msg += f" (key pressed: {key})"
+        displayMessage(f"{msg}")
 # main loop
 #####
-
-curses.curs_set(1)
-curses.endwin()
