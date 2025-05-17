@@ -55,9 +55,7 @@ class Skyline:
     flasher_rate = 100
     flasher_state = 0
 
-    display_message = None
-    display_message_time = 0
-    display_message_coords = []
+    display_message = {}
 
     speed = 10
     tick = 0
@@ -229,42 +227,41 @@ def flasherLoop():
 
 
 def displayMessageLoop():
-    if not skyline.display_message:
-        return
-    screen.addstr(
-        skyline.display_message_coords[1],
-        skyline.display_message_coords[0],
-        skyline.display_message,
-    )
-    skyline.display_message_time += 1
-    if skyline.display_message_time >= 100:
+    for msgtype, msg in list(skyline.display_message.items()):
         screen.addstr(
-            skyline.display_message_coords[1],
-            skyline.display_message_coords[0],
-            " " * len(skyline.display_message),
+            msg["y"],
+            msg["x"],
+            msg["text"],
         )
-        skyline.display_message_time = 0
-        skyline.display_message = None
-        skyline.display_message_coords = []
+        msg["time"] += 1
+        if msg["time"] >= msg.get("display_time_max", 100):
+            screen.addstr(
+                msg["y"],
+                msg["x"],
+                " " * len(msg["text"]),
+            )
+            del skyline.display_message[msgtype]
 
     return
 
 
-def displayMessage(message, x=0, y=0):
+def displayMessage(message, msgtype="default", x=0, y=0):
     # clean up previous message if it exists
-    if skyline.display_message and (
-        skyline.display_message != message or skyline.display_message_coords != [x, y]
-    ):
+    prevmsg = skyline.display_message.get(msgtype)
+    if prevmsg:
         screen.addstr(
-            skyline.display_message_coords[1],
-            skyline.display_message_coords[0],
-            " " * len(skyline.display_message),
+            prevmsg["y"],
+            prevmsg["x"],
+            " " * len(prevmsg["text"]),
         )
 
     # set display message for displayMessageLoop() to handle
-    skyline.display_message = message
-    skyline.display_message_time = 0
-    skyline.display_message_coords = [x, y]
+    skyline.display_message[msgtype] = {
+        "text": message,
+        "time": 0,
+        "x": x,
+        "y": y,
+    }
 
     return
 
@@ -299,20 +296,22 @@ while True:
 
     displayMessageLoop()
 
-    if skyline.debug:
-        debugmsg = f"Max stars: {skyline.star_max} Current stars: {len(skyline.stars)}"
-        screen.addstr(0, num_cols - len(debugmsg), debugmsg)
-
     screen.refresh()
     curses.napms(skyline.speed)
     if skyline.tick > 999:
         skyline.tick = 0
 
     key = screen.getch()
+    # no key pressed
     if key == -1:
         pass
+    # q: quit
     elif key == 113:
         tearDown()
+    # h: hi
+    elif key == 104:
+        displayMessage("Hello there!", msgtype="hi", x=0, y=1)
+    # d: debug
     elif key == 100:
         if skyline.debug:
             skyline.debug = False
@@ -320,7 +319,14 @@ while True:
         else:
             skyline.debug = True
             msg = "Debug mode: ON"
+
+            debugmsg = (
+                f"Max stars: {skyline.star_max} Current stars: {len(skyline.stars)}"
+            )
+            displayMessage(debugmsg, msgtype="debug", x=num_cols - len(debugmsg), y=0)
+
         displayMessage(msg)
+    # unused key: show help msg
     else:
         msg = helpmsg + ""
         if skyline.debug:
