@@ -14,7 +14,7 @@ curses.cbreak()
 curses.noecho()  # dont print pressed keys
 curses.start_color()
 
-helpmsg = "Commands: q: quit"
+helpmsg = "Commands: q: quit, d: debug"
 
 # star colors
 curses.init_pair(1, 14, curses.COLOR_BLACK)
@@ -234,7 +234,7 @@ def displayMessageLoop():
             msg["text"],
         )
         msg["time"] += 1
-        if msg["time"] >= msg.get("display_time_max", 100):
+        if msg["time"] >= msg.get("duration", 100):
             screen.addstr(
                 msg["y"],
                 msg["x"],
@@ -245,7 +245,7 @@ def displayMessageLoop():
     return
 
 
-def displayMessage(message, msgtype="default", x=0, y=0):
+def displayMessage(message, msgtype="default", x=0, y=0, duration=0):
     # clean up previous message if it exists
     prevmsg = skyline.display_message.get(msgtype)
     if prevmsg:
@@ -256,11 +256,15 @@ def displayMessage(message, msgtype="default", x=0, y=0):
         )
 
     # set display message for displayMessageLoop() to handle
+    if not duration:
+        duration = 100
+        duration += len(message) * 10
     skyline.display_message[msgtype] = {
         "text": message,
         "time": 0,
         "x": x,
         "y": y,
+        "duration": duration,
     }
 
     return
@@ -294,6 +298,16 @@ while True:
     ):
         flasherLoop()
 
+    if skyline.debug:
+        debugmsg = f"Stars: {len(skyline.stars)}/{skyline.star_max} Buildings: {len(skyline.buildings)}"
+        displayMessage(
+            debugmsg,
+            msgtype="debug",
+            x=num_cols - len(debugmsg),
+            y=0,
+            duration=10,
+        )
+
     displayMessageLoop()
 
     screen.refresh()
@@ -316,14 +330,10 @@ while True:
         if skyline.debug:
             skyline.debug = False
             msg = "Debug mode: OFF"
+            displayMessage(" ", msgtype="debug", x=num_cols - 1, y=0)
         else:
             skyline.debug = True
             msg = "Debug mode: ON"
-
-            debugmsg = (
-                f"Max stars: {skyline.star_max} Current stars: {len(skyline.stars)}"
-            )
-            displayMessage(debugmsg, msgtype="debug", x=num_cols - len(debugmsg), y=0)
 
         displayMessage(msg)
     # unused key: show help msg
