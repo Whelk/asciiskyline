@@ -74,11 +74,11 @@ class Skyline:
     display_message = {}
 
     speed = 10
+    default_speed = 10
     tick = 0
 
 
 skyline = Skyline()
-skyline.default_speed = skyline.speed
 
 
 def behindBuilding(position_x, position_y):
@@ -163,6 +163,8 @@ def setupSkyline():
     skyline.buildings = []
     skyline.stars = []
     skyline.fireworks = []
+    skyline.flasher_position = None
+    skyline.flasher_state = 0
     blds = 0
     position_x = 0
     while position_x < skyline.cols:
