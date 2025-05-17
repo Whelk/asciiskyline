@@ -586,7 +586,9 @@ def main(screen):
         # f: firework
         elif key == 102:
             spawnFirework()
-
+        # ?: help
+        elif key in [47, 63]:
+            displayMessage(helpmsg)
         # d: debug
         elif key == 100:
             if skyline.debug:
@@ -598,9 +600,9 @@ def main(screen):
                 msg = "Debug mode: ON"
 
             displayMessage(msg)
-        # unused key: show help msg
+        # unused key: prompt to press ? for help
         else:
-            msg = helpmsg + ""
+            msg = "(Press ? for help)"
             if skyline.debug:
                 msg += f" (key pressed: {key})"
             displayMessage(f"{msg}")
