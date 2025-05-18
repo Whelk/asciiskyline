@@ -9,8 +9,9 @@ Inspired by the Starry Skyline module of the After Dark screensavers of old.  Se
 Key | Function
 --- | ---
 `?` | help
-`r` | reset skyline
 `f` | set off firework
+`r` | toggle rain
+`R` | reset skyline
 `+` | increase speed
 `-` | decrease speed
 `s` | reset speed

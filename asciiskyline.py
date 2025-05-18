@@ -15,7 +15,7 @@ curses.cbreak()
 curses.noecho()  # dont print pressed keys
 curses.start_color()
 
-helpmsg = "Commands: r:reset skyline, f:firework, q:quit, +:speed up, -:speed down, s:reset speed, F:toggle flasher, d:debug"
+helpmsg = "Commands: f: firework, r:toggle rain, R: reset skyline, q:quit, +:speed up, -:speed down, s:reset speed, F:toggle flasher, d:debug"
 
 # star colors
 curses.init_pair(1, 14, curses.COLOR_BLACK)
@@ -76,6 +76,12 @@ class Skyline:
     speed = 10
     default_speed = 10
     tick = 0
+
+    raining = False  # is it currently raining?
+    raining_duration = 0  # to have rain ramp up/down gradually
+    raindrop_char = "\\"
+    raindrops = []
+    raindrop_rate = 4
 
 
 skyline = Skyline()
@@ -163,6 +169,9 @@ def setupSkyline():
     skyline.buildings = []
     skyline.stars = []
     skyline.fireworks = []
+    skyline.raindrops = []
+    skyline.raining = False
+    skyline.raining_duration = 0
     skyline.flasher_position = None
     skyline.flasher_state = 0
     blds = 0
@@ -502,6 +511,77 @@ def fireworks():
     return
 
 
+def rainLoop():
+
+    #####
+    # produce new raindrops
+    if skyline.raining or skyline.raining_duration:
+
+        duration_max = 1000
+
+        # rain density ramp up/down over time rather than immediate start/stop
+        if skyline.raining and skyline.raining_duration < duration_max:
+            # ramp up slowly
+            skyline.raining_duration += 2
+        elif not skyline.raining and skyline.raining_duration:
+            # ramp down more quickly but still gradual
+            skyline.raining_duration -= 10
+            if skyline.raining_duration < 0:
+                skyline.raining_duration = 0
+
+        last_drop = 0  # to have minimum space between raindrops
+        raindrop_chance = duration_max - (skyline.raining_duration / 35)
+
+        # produce raindrops across top of screen
+        for col in range(skyline.cols):
+            last_drop -= 1
+            if last_drop <= 0 and random.randint(1, duration_max) > raindrop_chance:
+                raindrop = {"x": col, "y": 0}
+                skyline.raindrops.append(raindrop)
+                last_drop = 20
+
+        # produce raindrops along left side so there's not a bare patch there
+        # (since they're moving slightly to the right as they fall)
+        for col in range(skyline.rows):
+
+            # avoid drops that would collide with drawn office windows
+            if col % 2:
+                continue
+
+            last_drop -= 1
+            if last_drop <= 0 and random.randint(1, 1000) > raindrop_chance:
+                raindrop = {"x": 0, "y": col}
+                skyline.raindrops.append(raindrop)
+                last_drop = 20
+    # produce new raindrops
+    #####
+
+    #####
+    # draw/move existing raindrops
+    for drop in list(skyline.raindrops):
+
+        # remove previous drawing of raindrop if exists
+        if "prev_x" in drop:
+            drawSym(drop["prev_x"], drop["prev_y"], " ", background=False)
+
+        # remove raindrop if it's beyond the screen edge
+        if drop["x"] > skyline.cols or drop["y"] > skyline.rows:
+            skyline.raindrops.remove(drop)
+            continue
+
+        drawSym(drop["x"], drop["y"], skyline.raindrop_char, background=False)
+
+        # remember current location of drop and set next location
+        drop["prev_x"] = drop["x"] + 0
+        drop["prev_y"] = drop["y"] + 0
+        drop["x"] += 1
+        drop["y"] += 2
+    # draw/move existing raindrops
+    #####
+
+    return
+
+
 def main(screen):
     #####
     # main loop
@@ -522,8 +602,13 @@ def main(screen):
         if not skyline.tick % skyline.firework_rate:
             fireworks()
 
+        if not skyline.tick % skyline.raindrop_rate:
+            rainLoop()
+
         if skyline.debug:
             debugmsg = f"Stars:{len(skyline.stars)}/{skyline.star_max} Bldgs:{len(skyline.buildings)} Size:{skyline.cols}x{skyline.rows}"
+            if skyline.raining_duration:
+                debugmsg += f" RainDur:{skyline.raining_duration}"
             displayMessage(
                 debugmsg,
                 msgtype="debug",
@@ -580,8 +665,8 @@ def main(screen):
             else:
                 skyline.flasher = True
                 displayMessage(f"Tallest building flasher ON.")
-        # r: reset skyline
-        elif key in [114, curses.KEY_RESIZE]:
+        # R: reset skyline
+        elif key in [82, curses.KEY_RESIZE]:
             screen.clear()
             skyline.rows, skyline.cols = screen.getmaxyx()
             setupSkyline()
@@ -589,6 +674,14 @@ def main(screen):
             if key == curses.KEY_RESIZE:
                 msg = f"Terminal size changed: {msg}"
             displayMessage(msg)
+        # r: toggle rain
+        elif key == 114:
+            if skyline.raining:
+                skyline.raining = False
+                displayMessage("Rain OFF.")
+            else:
+                skyline.raining = True
+                displayMessage("Rain ON.")
         # f: firework
         elif key == 102:
             spawnFirework()
