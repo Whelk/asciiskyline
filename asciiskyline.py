@@ -180,10 +180,16 @@ def setupSkyline():
             tallest_building = building
     if tallest_building:
         skyline.tallest_building = tallest_building
-        skyline.flasher_position = [
-            tallest_building["position_x"] + int(tallest_building["width"] / 2),
-            tallest_building["height"] + 1,
-        ]
+
+        flasher_x = tallest_building["position_x"] + int(tallest_building["width"] / 2)
+        flasher_x = min([flasher_x, skyline.cols - 1])
+        flasher_x = max([flasher_x, 1])
+
+        flasher_y = tallest_building["height"] + 1
+        flasher_y = min([flasher_y, skyline.rows - 1])
+        flasher_y = max([flasher_y, 1])
+
+        skyline.flasher_position = [flasher_x, flasher_y]
 
     # make all the buildings
     #####
