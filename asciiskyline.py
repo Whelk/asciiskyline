@@ -533,25 +533,29 @@ def rainLoop():
         last_drop = 0  # to have minimum space between raindrops
         raindrop_chance = duration_max - (skyline.raining_duration / 35)
 
+        raindrop_y = 0 if skyline.rows % 2 else 1  # avoid window collisions
+
         # produce raindrops across top of screen
         for col in range(skyline.cols):
             last_drop -= 1
             if last_drop <= 0 and random.randint(1, duration_max) > raindrop_chance:
-                raindrop = {"x": col, "y": 0}
+                raindrop = {"x": col, "y": raindrop_y}
                 skyline.raindrops.append(raindrop)
                 last_drop = 20
 
         # produce raindrops along left side so there's not a bare patch there
         # (since they're moving slightly to the right as they fall)
-        for col in range(skyline.rows):
-
-            # avoid drops that would collide with drawn office windows
-            if col % 2:
-                continue
-
+        for row in range(skyline.rows):
             last_drop -= 1
             if last_drop <= 0 and random.randint(1, 1000) > raindrop_chance:
-                raindrop = {"x": 0, "y": col}
+                raindrop_y = row
+                # fixes window collisions for odd-height screen
+                if raindrop_y % 2 and skyline.rows % 2:
+                    raindrop_y += 1
+                # fixes window collisions for even-height screen
+                elif not raindrop_y % 2 and not skyline.rows % 2:
+                    raindrop_y += 1
+                raindrop = {"x": 0, "y": raindrop_y}
                 skyline.raindrops.append(raindrop)
                 last_drop = 20
     # produce new raindrops
