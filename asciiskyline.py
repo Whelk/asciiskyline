@@ -132,14 +132,14 @@ def makeBuilding(position_x):
         prev = skyline.buildings[-1]
         window_choices.remove(prev["window"])
     window = random.choice(window_choices)
-    building_width = random.randint(8, 12)
-    building_height = random.randint(4, 15)
+    building_width = random.choice([8, 10, 12, 14])
+    building_height = random.choice([4, 6, 8, 10, 12, 14])
     if prev and building_height in range(prev["height"] - 2, prev["height"] + 2):
-        building_height = random.choice([building_height + 3, building_height + 6])
+        building_height = random.choice([building_height + 2, building_height + 6])
     cur_width = 0
     cur_height = 0
 
-    unlit_min = max(1, int(building_height / 3))
+    unlit_min = max(1, int(building_height / random.randint(1, 4)))
     building = {
         "position_x": position_x,
         "height": building_height,
@@ -191,10 +191,11 @@ def setupSkyline():
         skyline.tallest_building = tallest_building
 
         flasher_x = tallest_building["position_x"] + int(tallest_building["width"] / 2)
+        flasher_x -= 1
         flasher_x = min([flasher_x, skyline.cols - 1])
         flasher_x = max([flasher_x, 1])
 
-        flasher_y = tallest_building["height"] + 1
+        flasher_y = tallest_building["height"] + 2
         flasher_y = min([flasher_y, skyline.rows - 1])
         flasher_y = max([flasher_y, 1])
 
