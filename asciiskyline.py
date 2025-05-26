@@ -366,7 +366,7 @@ def spawnFirework(x=0, y=0, color=None):
     )
 
 
-def fireworks():
+def fireworkLoop():
     for firework in list(skyline.fireworks):
         fw_x = firework["x"]
         fw_y = firework["y"]
@@ -612,7 +612,7 @@ def main(screen):
             flasherLoop()
 
         if not skyline.tick % skyline.firework_rate:
-            fireworks()
+            fireworkLoop()
 
         if not skyline.tick % skyline.raindrop_rate:
             rainLoop()
