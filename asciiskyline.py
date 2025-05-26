@@ -38,6 +38,7 @@ curses.init_pair(9, 7, curses.COLOR_BLACK)
 curses.init_pair(10, 10, curses.COLOR_BLACK)
 curses.init_pair(11, 199, curses.COLOR_BLACK)
 curses.init_pair(12, 129, curses.COLOR_BLACK)
+firework_colors = [7, 8, 9, 10, 11, 12]
 
 
 rows, cols = screen.getmaxyx()
@@ -342,7 +343,13 @@ def displayMessage(message, msgtype="default", x=0, y=0, duration=0):
 
 def spawnFirework(x=0, y=0, color=None):
     if not color:
-        color = random.randint(7, 12)
+        colorchoice = list(firework_colors)
+
+        # avoid same color firework twice in a row
+        if skyline.fireworks:
+            colorchoice.remove(skyline.fireworks[-1]["color"])
+
+        color = random.choice(colorchoice)
 
     if not x and not y:
         x = random.randint(1, skyline.cols)
