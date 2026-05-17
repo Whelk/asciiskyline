@@ -711,6 +711,10 @@ def main(screen):
                 msg = "Debug mode: ON"
 
             displayMessage(msg)
+        # C: clear messages
+        elif key == 67:
+            for msgtype in skyline.display_message:
+                displayMessage(" ", msgtype=msgtype)
         # unused key: prompt to press ? for help
         else:
             msg = "(Press ? for help)"
