@@ -15,7 +15,7 @@ curses.cbreak()
 curses.noecho()  # dont print pressed keys
 curses.start_color()
 
-helpmsg = "Commands: f: firework, r:toggle rain, R: reset skyline, q:quit, +:speed up, -:speed down, s:reset speed, F:toggle flasher, d:debug"
+helpmsg = "Commands: f: firework, m: meteor, M: toggle meteor shower, r:toggle rain, R: reset skyline, q:quit, +:speed up, -:speed down, s:reset speed, F:toggle flasher, d:debug"
 
 # star colors
 curses.init_pair(1, 14, curses.COLOR_BLACK)
@@ -40,6 +40,7 @@ curses.init_pair(11, 199, curses.COLOR_BLACK)
 curses.init_pair(12, 129, curses.COLOR_BLACK)
 firework_colors = [7, 8, 9, 10, 11, 12]
 
+meteor_colors = [1]
 
 rows, cols = screen.getmaxyx()
 
@@ -61,13 +62,15 @@ class Skyline:
     office_chars = ["#", "█"]
     office_rate = 8
 
-    meteoroid = None
-
     flasher = True  # do you want the tallest building to have a blinking flasher light up top?
     flasher_char = "o"
     flasher_position = None
     flasher_rate = 100
     flasher_state = 0
+
+    meteor_shower = 0  # is there currently a meteor shower?
+    meteors = []
+    meteor_rate = 2
 
     fireworks = []
     firework_rate = 15
@@ -339,6 +342,75 @@ def displayMessage(message, msgtype="default", x=0, y=0, duration=0):
     }
 
     return
+
+
+def spawnMeteor(x=0, direction=None, color=None):
+    if not direction:
+        direction = random.choice(["right", "left"])
+    if not color:
+        color = random.choice(meteor_colors)
+    if not x:
+        x = random.randint(1, skyline.cols)
+    y = 0
+
+    meteor = {"x": x, "y": y, "direction": direction, "color": color}
+    skyline.meteors.append(meteor)
+
+
+def meteorLoop():
+    meteor_chance = 2
+    if skyline.meteor_shower:
+        meteor_chance = 150
+    if random.randint(1, 1000) <= meteor_chance:
+        spawnMeteor()
+    for meteor in list(skyline.meteors):
+        drawSym(
+            meteor["x"],
+            meteor["y"],
+            " ",
+        )
+        drawSym(
+            meteor["x"] - 1,
+            meteor["y"] - 1,
+            " ",
+        )
+        drawSym(
+            meteor["x"] - 2,
+            meteor["y"] - 2,
+            " ",
+        )
+
+        meteor["x"] += 1
+        meteor["y"] += 1
+        if meteor["y"] >= 14:
+            meteor["color"] = 6
+
+        if (
+            meteor["y"] >= 20
+            or meteor["x"] > skyline.cols
+            or meteor["y"] > skyline.rows
+        ):
+            skyline.meteors.remove(meteor)
+            continue
+
+        drawSym(
+            meteor["x"],
+            meteor["y"],
+            "*",
+            meteor["color"],
+        )
+        drawSym(
+            meteor["x"] - 1,
+            meteor["y"] - 1,
+            "\\",
+            meteor["color"],
+        )
+        drawSym(
+            meteor["x"] - 2,
+            meteor["y"] - 2,
+            "\\",
+            meteor["color"],
+        )
 
 
 def spawnFirework(x=0, y=0, color=None):
@@ -617,10 +689,17 @@ def main(screen):
         if not skyline.tick % skyline.raindrop_rate:
             rainLoop()
 
+        if not skyline.tick % skyline.meteor_rate:
+            meteorLoop()
+
         if skyline.debug:
             debugmsg = f"Stars:{len(skyline.stars)}/{skyline.star_max} Bldgs:{len(skyline.buildings)} Size:{skyline.cols}x{skyline.rows}"
             if skyline.raining_duration:
                 debugmsg += f" RainDur:{skyline.raining_duration}"
+            if skyline.fireworks:
+                debugmsg += f" Fireworks:{len(skyline.fireworks)}"
+            if skyline.meteors:
+                debugmsg += f" Meteors:{len(skyline.meteors)}"
             displayMessage(
                 debugmsg,
                 msgtype="debug",
@@ -697,6 +776,17 @@ def main(screen):
         # f: firework
         elif key == 102:
             spawnFirework()
+        # m: meteor
+        elif key == 109:
+            spawnMeteor()
+        # M: toggle meteor shower
+        elif key == 77:
+            if skyline.meteor_shower:
+                skyline.meteor_shower = False
+                displayMessage("Meteor shower OFF.")
+            else:
+                skyline.meteor_shower = True
+                displayMessage("Meteor shower ON.")
         # ?: help
         elif key in [47, 63]:
             displayMessage(helpmsg)

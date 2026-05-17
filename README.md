@@ -10,6 +10,8 @@ Key | Function
 --- | ---
 `?` | help
 `f` | set off firework
+`m` | spawn meteor (shooting star)
+`M` | toggle meteor shower
 `r` | toggle rain
 `R` | reset skyline
 `+` | increase speed
