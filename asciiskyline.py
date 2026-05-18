@@ -729,16 +729,15 @@ def snowLoop():
     # draw/move existing snowflakes
     for snowflake in list(skyline.snowflakes):
 
-        # remove previous drawing of snowflake if exists
-        if "prev_x" in snowflake:
-            clearFluff(snowflake["prev_x"], snowflake["prev_y"])
-
         # remove snowflake if it's beyond the screen edge
         if snowflake["x"] > skyline.cols or snowflake["y"] > skyline.rows:
             skyline.snowflakes.remove(snowflake)
             continue
 
         building = behindBuilding(snowflake["x"], snowflake["y"])
+
+        poof_previous = True
+
         if building and [snowflake["x"], snowflake["y"]] in building["offices_lit"]:
             pass
         else:
@@ -749,6 +748,14 @@ def snowLoop():
                 color=2,
                 background=False,
             )
+
+        if building and snowflake["y"] == skyline.rows - building["height"]:
+            poof_previous = False
+
+        if poof_previous:
+            # remove previous drawing of snowflake if exists
+            if "prev_x" in snowflake and snowflake["y"] < skyline.rows:
+                clearFluff(snowflake["prev_x"], snowflake["prev_y"])
 
         # remember current location of snowflake and set next location
         snowflake["prev_x"] = snowflake["x"] + 0
