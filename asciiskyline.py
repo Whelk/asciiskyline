@@ -849,12 +849,15 @@ def main(screen):
                 displayMessage(f"Tick length is now: {skyline.speed}")
         # -/_: decrease speed (technically increase wait time beetween ticks)
         elif key in [45, 95]:
-            adjust = 1
-            current = skyline.speed
-            if current >= 10:
-                adjust = 10
-            skyline.speed += adjust
-            displayMessage(f"Tick length is now: {skyline.speed}")
+            if skyline.speed >= 100:
+                displayMessage("Can't go any slower ...")
+            else:
+                adjust = 1
+                current = skyline.speed
+                if current >= 10:
+                    adjust = 10
+                skyline.speed += adjust
+                displayMessage(f"Tick length is now: {skyline.speed}")
         # F: toggle tallest building flasher
         elif key == 70:
             if skyline.flasher:
