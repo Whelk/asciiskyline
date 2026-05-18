@@ -98,7 +98,7 @@ def behindBuilding(position_x, position_y):
         ):
             rangey = range(skyline.rows - building["height"], skyline.rows)
             if position_y in rangey:
-                return True
+                return building
     return False
 
 
@@ -127,6 +127,20 @@ def drawSym(x, y, symbol, color=None, background=True):
             pass
 
     return
+
+
+def clearFluff(x, y):
+    # Clear a coordinate and redraw a star or building window if necessary
+    building = behindBuilding(x, y)
+    if building and [x, y] in building["offices_lit"]:
+        screen.addstr(
+            y,
+            x,
+            building["window"],
+            curses.color_pair(3),
+        )
+    else:
+        drawSym(x, y, " ", background=False)
 
 
 def makeBuilding(position_x):
@@ -160,7 +174,9 @@ def makeBuilding(position_x):
         for loop in range(building_height):
             cur_height += 1
             if not cur_height % 2 and not (position_x + cur_width) % 2:
-                building["offices_unlit"].append([cur_width, cur_height])
+                x = position_x + cur_width
+                y = skyline.rows - cur_height
+                building["offices_unlit"].append([x, y])
         cur_height = 0
         cur_width += 1
     return cur_width
@@ -256,8 +272,8 @@ def officeLoop():
             unlit = random.choice(office_choices)
             try:
                 screen.addstr(
-                    skyline.rows - unlit[1],
-                    building["position_x"] + unlit[0],
+                    unlit[1],
+                    unlit[0],
                     building["window"],
                     curses.color_pair(3),
                 )
@@ -269,8 +285,8 @@ def officeLoop():
         elif building["offices_lit"] and random.randint(1, 100) > 98:
             poofwindow = random.choice(building["offices_lit"])
             screen.addstr(
-                skyline.rows - poofwindow[1],
-                building["position_x"] + poofwindow[0],
+                poofwindow[1],
+                poofwindow[0],
                 " ",
             )
             building["offices_lit"].remove(poofwindow)
