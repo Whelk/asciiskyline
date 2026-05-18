@@ -236,7 +236,7 @@ setupSkyline()
 
 def starLoop():
     starchar = random.choice(skyline.star_chars)
-    nstar_x = random.choice(range(skyline.cols))
+    nstar_x = random.choice(range(skyline.cols - 1))
     if nstar_x >= skyline.cols:
         nstar_x -= 1
     nstar_y = skyline.rows - random.choice(range(skyline.rows)) - 1
