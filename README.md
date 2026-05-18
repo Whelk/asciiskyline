@@ -16,7 +16,8 @@ Key | Function
 `R` | reset skyline
 `+` | increase speed
 `-` | decrease speed
-`s` | reset speed
+`s` | toggle snow
+`S` | reset speed
 `F` | toggle flasher
 `d` | toggle debug mode
 `C` | clear all messages

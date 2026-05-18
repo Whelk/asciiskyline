@@ -15,7 +15,7 @@ curses.cbreak()
 curses.noecho()  # dont print pressed keys
 curses.start_color()
 
-helpmsg = "Commands: f: firework, m: meteor, M: toggle meteor shower, r:toggle rain, R: reset skyline, q:quit, +:speed up, -:speed down, s:reset speed, F:toggle flasher, d:debug"
+helpmsg = "Commands: f:firework, m:meteor, M:meteor shower, r:rain, R: reset skyline, q:quit, +:speed up, -:speed down, s:snow, S:reset speed, d:debug"
 
 # star colors
 curses.init_pair(1, 14, curses.COLOR_BLACK)
@@ -71,6 +71,12 @@ class Skyline:
     meteor_shower = 0  # is there currently a meteor shower?
     meteors = []
     meteor_rate = 2
+
+    snowing = False  # is it currently snowing?
+    snowing_duration = 0
+    snowflake_char = "*"
+    snowflakes = []
+    snowflake_rate = 10
 
     fireworks = []
     firework_rate = 15
@@ -682,6 +688,79 @@ def rainLoop():
     return
 
 
+def snowLoop():
+
+    #####
+    # produce new snowflakes
+    if skyline.snowing or skyline.snowing_duration:
+
+        duration_max = 1000
+
+        # snow density ramp up/down over time rather than immediate start/stop
+        if skyline.snowing and skyline.snowing_duration < duration_max:
+            # ramp up slowly
+            skyline.snowing_duration += 2
+        elif not skyline.snowing and skyline.snowing_duration:
+            # ramp down more quickly but still gradual
+            skyline.snowing_duration -= 10
+            if skyline.snowing_duration < 0:
+                skyline.snowing_duration = 0
+
+        last_snowflake = 0  # to have minimum space between snowflakes
+        snowflake_chance = duration_max - (skyline.snowing_duration / 35)
+
+        snowflake_y = 0 if skyline.rows % 2 else 1  # avoid window collisions
+
+        # produce snowflakes across top of screen
+        for col in range(skyline.cols):
+            last_snowflake -= 1
+            if (
+                last_snowflake <= 0
+                and random.randint(1, duration_max) > snowflake_chance
+            ):
+                snowflake = {"x": col, "y": snowflake_y}
+                skyline.snowflakes.append(snowflake)
+                last_snowflake = 20
+
+    # produce new snowflakes
+    #####
+
+    #####
+    # draw/move existing snowflakes
+    for snowflake in list(skyline.snowflakes):
+
+        # remove previous drawing of snowflake if exists
+        if "prev_x" in snowflake:
+            clearFluff(snowflake["prev_x"], snowflake["prev_y"])
+
+        # remove snowflake if it's beyond the screen edge
+        if snowflake["x"] > skyline.cols or snowflake["y"] > skyline.rows:
+            skyline.snowflakes.remove(snowflake)
+            continue
+
+        building = behindBuilding(snowflake["x"], snowflake["y"])
+        if building and [snowflake["x"], snowflake["y"]] in building["offices_lit"]:
+            pass
+        else:
+            drawSym(
+                snowflake["x"],
+                snowflake["y"],
+                skyline.snowflake_char,
+                color=2,
+                background=False,
+            )
+
+        # remember current location of snowflake and set next location
+        snowflake["prev_x"] = snowflake["x"] + 0
+        snowflake["prev_y"] = snowflake["y"] + 0
+        snowflake["x"] += random.randint(-1, 1)
+        snowflake["y"] += 1
+    # draw/move existing snowflakes
+    #####
+
+    return
+
+
 def main(screen):
     #####
     # main loop
@@ -704,6 +783,9 @@ def main(screen):
 
         if not skyline.tick % skyline.raindrop_rate:
             rainLoop()
+
+        if not skyline.tick % skyline.snowflake_rate:
+            snowLoop()
 
         if not skyline.tick % skyline.meteor_rate:
             meteorLoop()
@@ -741,8 +823,17 @@ def main(screen):
         # h: hi
         elif key == 104:
             displayMessage("Hello there!", msgtype="hi", x=0, y=1)
-        # s: speed to default
+        # s: toggle snow
         elif key == 115:
+            if skyline.snowing:
+                skyline.snowing = False
+                displayMessage("Snow OFF.")
+            else:
+                skyline.raining = False
+                skyline.snowing = True
+                displayMessage("Snow ON.")
+        # S: speed to default
+        elif key == 83:
             displayMessage("Speed set to default.")
             skyline.speed = skyline.default_speed + 0
         # +/=: increase speed (technically decrease wait time beetween ticks)
@@ -787,6 +878,7 @@ def main(screen):
                 skyline.raining = False
                 displayMessage("Rain OFF.")
             else:
+                skyline.snowing = False
                 skyline.raining = True
                 displayMessage("Rain ON.")
         # f: firework
