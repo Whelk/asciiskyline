@@ -102,7 +102,7 @@ def behindBuilding(position_x, position_y):
         if position_x in range(
             building["position_x"], building["position_x"] + building["width"]
         ):
-            rangey = range(skyline.rows - building["height"], skyline.rows)
+            rangey = range(skyline.rows - building["height"], skyline.rows + 1)
             if position_y in rangey:
                 return building
     return False
