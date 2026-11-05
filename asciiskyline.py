@@ -5,7 +5,7 @@ Creates a little starry city skyline in your terminal, just because it's nice to
 Original author: whelk, who couldn't sleep on the night of 2025-05-16
 """
 
-import curses, os, random
+import curses, math, os, random, time
 from curses import wrapper
 
 screen = curses.initscr()
@@ -15,7 +15,7 @@ curses.cbreak()
 curses.noecho()  # dont print pressed keys
 curses.start_color()
 
-helpmsg = "Commands: f:firework, m:meteor, M:meteor shower, r:rain, R: reset skyline, q:quit, +:speed up, -:speed down, s:snow, S:reset speed, d:debug"
+helpmsg = "Commands: f:firework, m:meteor, M:meteor shower, r:rain, R: reset skyline, q:quit, +:speed up, -:speed down, s:snow, S:reset speed, a:alien rave, d:debug"
 
 # star colors
 curses.init_pair(1, 14, curses.COLOR_BLACK)
@@ -42,6 +42,36 @@ firework_colors = [7, 8, 9, 10, 11, 12]
 
 meteor_colors = [1]
 
+# alien rave colors:
+rave_colors = []
+for pair, (lit, unlit) in enumerate(
+    [
+        (198, 89),
+        (201, 54),
+        (51, 23),
+        (196, 52),
+        (208, 94),
+        (46, 22),
+        (141, 60),
+        (226, 58),
+    ]
+):
+    curses.init_pair(13 + pair * 2, lit, curses.COLOR_BLACK)
+    curses.init_pair(14 + pair * 2, unlit, curses.COLOR_BLACK)
+    rave_colors.append((13 + pair * 2, 14 + pair * 2))
+curses.init_pair(29, 231, curses.COLOR_BLACK)
+rave_flash = 29
+
+# mothership:
+mothership = [
+    "        __________________        ",
+    "    ,-''                  ''-,    ",
+    "  ,'   .   .   .   .   .   .   ', ",
+    " /______________________________\\ ",
+    " \\    o       o       o       o / ",
+    "  '----------------------------'  ",
+]
+
 rows, cols = screen.getmaxyx()
 
 
@@ -57,6 +87,7 @@ class Skyline:
     star_rate = 4
     star_chars = ["*"] * 1 + ["."] * 6 + ["+"] * 3
     star_max = int((cols * rows) / 50)
+    star_looks = {}  # (x, y): (char, color), so a star can be redrawn
 
     buildings = []
     office_chars = ["#", "█"]
@@ -92,6 +123,14 @@ class Skyline:
     raindrop_char = "\\"
     raindrops = []
     raindrop_rate = 4
+
+    raving = False  # is there currently an alien rave?
+    rave_bpm = 141
+    rave_star_boost = 6  # the sky fills up with this many times the stars
+    rave_start = 0
+    rave_step = None  # the part of the beat the sky was last painted for
+    rave_drawn = 0
+    rave_cells = {}  # (x, y): (char, color) of the beams and craft on screen
 
 
 skyline = Skyline()
@@ -194,6 +233,9 @@ def setupSkyline():
     # make all the buildings
     skyline.buildings = []
     skyline.stars = []
+    skyline.star_looks = {}
+    skyline.rave_cells = {}
+    skyline.rave_step = None
     skyline.fireworks = []
     skyline.raindrops = []
     skyline.raining = False
@@ -252,6 +294,7 @@ def starLoop():
         skyline.stars.append(coords)
         try:
             star_color = random.choice([1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3])
+            skyline.star_looks[(nstar_x, nstar_y)] = (starchar, star_color)
             screen.addstr(nstar_y, nstar_x, starchar, curses.color_pair(star_color))
         except:
             print(f"{nstar_x=} {nstar_y=}")
@@ -262,6 +305,7 @@ def starLoop():
         poofstar = random.choice(skyline.stars)
         screen.addstr(poofstar[1], poofstar[0], " ")
         skyline.stars.remove(poofstar)
+        skyline.star_looks.pop((poofstar[0], poofstar[1]), None)
 
     return
 
@@ -767,6 +811,154 @@ def snowLoop():
 
     return
 
+    # Alien rave:
+    # Beams and craft are over the city
+def raveCell(cells, x, y, char, color):
+    if 0 <= x < skyline.cols and 0 <= y < skyline.rows and not behindBuilding(x, y):
+        cells[(x, y)] = (char, color)
+
+    # Ravebeams across sky
+def raveBeams(cells, t):
+    for k in range(4):
+        a = math.sin(t * (0.09 + k * 0.031) + k * 2.1)
+        col = int((0.5 + 0.5 * a) * (skyline.cols - 1))
+        color = rave_colors[(k + int(t / 4)) % len(rave_colors)][0]
+        char = "\\" if a > 0.25 else ("/" if a < -0.25 else "|")
+        for y in range(skyline.rows):
+            raveCell(cells, col + int((skyline.rows - y) * a * 1.9), y, char, color)
+
+    # Flying Saucers
+def raveSaucers(cells, now, t, sky):
+    for k in range(3):
+        drift = (now * (0.03 + k * 0.012) + k * 0.37) % 1.0
+        x = int(drift * (skyline.cols + 12)) - 6
+        y = 1 + (k * 5 + 2) % max(1, sky - 2)
+        for i, char in enumerate("<-o->"):
+            color = rave_flash
+            if char == "-":
+                color = rave_colors[(i + int(t * 2)) % len(rave_colors)][0]
+            raveCell(cells, x + i, y, char, color)
+
+    # Mothership
+def raveMothership(cells, since, t, sky):
+    k = ((since - 8) % 300) / 115
+    if k >= 1:
+        return
+    width = len(mothership[0])
+    x0 = int(k * (skyline.cols + width)) - width
+    y0 = 1 + int(0.18 * sky)
+    lights = int(t * 2)
+    for r, line in enumerate(mothership):
+        for c, char in enumerate(line):
+            if char == " " and r in (0, len(mothership) - 1):
+                continue
+            color = 9
+            if char in "o.":
+                color = rave_colors[(c + lights) % len(rave_colors)][0]
+            raveCell(cells, x0 + c, y0 + r, char, color)
+
+
+    # Landing beam that occasionally stops
+def raveLandingBeam(cells, since, now):
+    k = (since - 40) % 90
+    if k >= 8:
+        return
+    picked = int((since - 40) // 90) * 7 % len(skyline.buildings)
+    building = skyline.buildings[picked]
+    x0 = building["position_x"] + int(building["width"] / 2)
+    half = max(1, int(2 * min(1, k, (8 - k) / 1.5)))
+    color = rave_flash
+    if not int(now * 6) % 2:
+        color = rave_colors[int(now) % len(rave_colors)][0]
+    for x in range(x0 - half, x0 + half + 1):
+        for y in range(skyline.rows):
+            raveCell(cells, x, y, "|" if x == x0 else ":", color)
+
+    # Put back what a beam or craft was covering
+def raveRestoreCell(cell):
+    look = skyline.star_looks.get(cell)
+    if look:
+        drawSym(cell[0], cell[1], look[0], look[1], background=False)
+    else:
+        drawSym(cell[0], cell[1], " ", background=False)
+
+
+def ravePaintCity(state, t):
+    for (x, y), look in skyline.star_looks.items():
+        color = rave_flash
+        if state != "flash":
+            tube = rave_colors[(x * 3 + y * 7 + int(t)) % len(rave_colors)]
+            color = tube[0] if state == "on" else tube[1]
+        drawSym(x, y, look[0], color, background=False)
+    color = {"flash": rave_flash, "on": 3, "off": 4}[state]
+    for building in skyline.buildings:
+        for office in building["offices_lit"]:
+            drawSym(office[0], office[1], building["window"], color, background=False)
+
+
+def raveLoop():
+    if not skyline.raving:
+        if len(skyline.stars) > skyline.star_max:
+            for loop in range(30):
+                starLoop()
+        return
+
+    now = time.monotonic()
+    t = now * skyline.rave_bpm / 60.0
+
+    # fill up the sky
+    if len(skyline.stars) < skyline.star_max:
+        for loop in range(max(1, int(skyline.star_max / 100))):
+            starLoop()
+
+    # four to the floor
+    if (int(t) // 4) % 8 == 7 and int(t * 6) % 2:
+        state = "flash"
+    elif t % 1.0 < 0.13:
+        state = "flash"
+    else:
+        state = "on" if t % 1.0 < 0.55 else "off"
+
+    step = (state, int(t))
+    if step == skyline.rave_step and now - skyline.rave_drawn < 0.03:
+        return
+    if step != skyline.rave_step:
+        skyline.rave_step = step
+        ravePaintCity(state, t)
+    skyline.rave_drawn = now
+
+    since = now - skyline.rave_start
+    sky = skyline.rows - skyline.tallest_building["height"]
+    cells = {}
+    raveBeams(cells, t)
+    raveSaucers(cells, now, t, sky)
+    raveMothership(cells, since, t, sky)
+    raveLandingBeam(cells, since, now)
+
+    for cell in skyline.rave_cells:
+        if cell not in cells:
+            raveRestoreCell(cell)
+    for (x, y), (char, color) in cells.items():
+        drawSym(x, y, char, color, background=False)
+    skyline.rave_cells = cells
+
+    return
+
+
+def raveOff():
+    skyline.raving = False
+    skyline.star_max = int(skyline.star_max / skyline.rave_star_boost)
+    skyline.rave_step = None
+    for cell in skyline.rave_cells:
+        raveRestoreCell(cell)
+    skyline.rave_cells = {}
+    for (x, y), look in skyline.star_looks.items():
+        drawSym(x, y, look[0], look[1], background=False)
+    for building in skyline.buildings:
+        for office in building["offices_lit"]:
+            drawSym(office[0], office[1], building["window"], 3, background=False)
+
+
 
 def main(screen):
     #####
@@ -796,6 +988,8 @@ def main(screen):
 
         if not skyline.tick % skyline.meteor_rate:
             meteorLoop()
+
+        raveLoop()
 
         if skyline.debug:
             debugmsg = f"Stars:{len(skyline.stars)}/{skyline.star_max} Bldgs:{len(skyline.buildings)} Size:{skyline.cols}x{skyline.rows}"
@@ -905,6 +1099,16 @@ def main(screen):
             else:
                 skyline.meteor_shower = True
                 displayMessage("Meteor shower ON.")
+        # a: toggle alien rave
+        elif key == 97:
+            if skyline.raving:
+                raveOff()
+                displayMessage("Alien rave OFF.")
+            else:
+                skyline.raving = True
+                skyline.rave_start = time.monotonic()
+                skyline.star_max *= skyline.rave_star_boost
+                displayMessage("~ something over the city ~")
         # ?: help
         elif key in [47, 63]:
             displayMessage(helpmsg)
