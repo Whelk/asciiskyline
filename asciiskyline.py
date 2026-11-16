@@ -15,7 +15,7 @@ curses.cbreak()
 curses.noecho()  # dont print pressed keys
 curses.start_color()
 
-helpmsg = "Commands: f:firework, m:meteor, M:meteor shower, r:rain, R: reset skyline, q:quit, +:speed up, -:speed down, s:snow, S:reset speed, a:alien rave, d:debug"
+helpmsg = "Commands: f:firework, m:meteor, M:meteor shower, r:rain, R: reset skyline, q:quit, +:speed up, -:speed down, s:snow, S:reset speed, a:alien rave, y:drone show, d:debug"
 
 # star colors
 curses.init_pair(1, 14, curses.COLOR_BLACK)
@@ -62,6 +62,13 @@ for pair, (lit, unlit) in enumerate(
 curses.init_pair(29, 231, curses.COLOR_BLACK)
 rave_flash = 29
 
+# drone show colors: white, red, gold, grey (the neon ones are the rave's)
+curses.init_pair(30, 255, curses.COLOR_BLACK)
+curses.init_pair(31, 196, curses.COLOR_BLACK)
+curses.init_pair(32, 220, curses.COLOR_BLACK)
+curses.init_pair(33, 244, curses.COLOR_BLACK)
+drone_colors = {"SNOW": 30, "ROU_RED": 31, "GOLD": 32, "STAR_DIM": 33}
+
 # mothership:
 mothership = [
     "        __________________        ",
@@ -71,6 +78,52 @@ mothership = [
     " \\    o       o       o       o / ",
     "  '----------------------------'  ",
 ]
+
+# drone show, from ascii_city: hundreds of lights come up from behind the city,
+# make a rocket that climbs on its flame, a heart that beats, a big wheel
+# turning, then a word, and go back down
+DRONE_N = 300  # how many
+DRONE_BASE = 12.0  # how far below the shapes' feet they take off from
+DRONE_RISE = 10.0  # seconds coming up
+DRONE_HOLD = 11.0  # each shape, held
+DRONE_MORPH = 4.0  # and getting from one to the next
+DRONE_FALL = 8.0  # back down
+DRONE_TOP = 105.0  # the highest a shape goes: the rocket's nose, at the end
+DRONE_WIDE = 120.0  # half the widest word, GOODNIGHT
+DRONE_SCALE = 0.3  # rows per unit of the show, at most
+DRONE_WORDS = ["HELLO", "GOODNIGHT", "LOVE YOU", "SEE YOU"]
+
+# block letters for the words, ascii_city's BIG_FONT
+drone_font = {
+    "A": (" # ", "# #", "###", "# #", "# #"),
+    "B": ("## ", "# #", "## ", "# #", "## "),
+    "C": (" ##", "#  ", "#  ", "#  ", " ##"),
+    "D": ("## ", "# #", "# #", "# #", "## "),
+    "E": ("###", "#  ", "## ", "#  ", "###"),
+    "F": ("###", "#  ", "## ", "#  ", "#  "),
+    "G": (" ##", "#  ", "# #", "# #", " ##"),
+    "H": ("# #", "# #", "###", "# #", "# #"),
+    "I": ("###", " # ", " # ", " # ", "###"),
+    "J": ("  #", "  #", "  #", "# #", " # "),
+    "K": ("# #", "# #", "## ", "# #", "# #"),
+    "L": ("#  ", "#  ", "#  ", "#  ", "###"),
+    "M": ("# #", "###", "# #", "# #", "# #"),
+    "N": ("## ", "# #", "# #", "# #", "# #"),
+    "O": (" # ", "# #", "# #", "# #", " # "),
+    "P": ("## ", "# #", "## ", "#  ", "#  "),
+    "Q": (" # ", "# #", "# #", "## ", " ##"),
+    "R": ("## ", "# #", "## ", "# #", "# #"),
+    "S": (" ##", "#  ", " # ", "  #", "## "),
+    "T": ("###", " # ", " # ", " # ", " # "),
+    "U": ("# #", "# #", "# #", "# #", "###"),
+    "V": ("# #", "# #", "# #", "# #", " # "),
+    "W": ("# #", "# #", "# #", "###", "# #"),
+    "X": ("# #", "# #", " # ", "# #", "# #"),
+    "Y": ("# #", "# #", " # ", " # ", " # "),
+    "Z": ("###", "  #", " # ", "#  ", "###"),
+    " ": ("   ",) * 5,
+    "?": ("## ", "  #", " # ", "   ", " # "),
+}
 
 rows, cols = screen.getmaxyx()
 
@@ -131,6 +184,12 @@ class Skyline:
     rave_step = None  # the part of the beat the sky was last painted for
     rave_drawn = 0
     rave_cells = {}  # (x, y): (char, color) of the beams and craft on screen
+
+    drones = False  # is there currently a drone show?
+    drone_start = 0
+    drone_show = 0  # how many shows so far, to pick the word
+    drone_drawn = 0
+    drone_cells = {}  # (x, y): (char, color) of the drones on screen
 
 
 skyline = Skyline()
@@ -236,6 +295,7 @@ def setupSkyline():
     skyline.star_looks = {}
     skyline.rave_cells = {}
     skyline.rave_step = None
+    skyline.drone_cells = {}
     skyline.fireworks = []
     skyline.raindrops = []
     skyline.raining = False
@@ -874,7 +934,7 @@ def raveLandingBeam(cells, since, now):
         for y in range(skyline.rows):
             raveCell(cells, x, y, "|" if x == x0 else ":", color)
 
-    # Put back what a beam or craft was covering
+    # Put back what a beam, craft or drone was covering
 def raveRestoreCell(cell):
     look = skyline.star_looks.get(cell)
     if look:
@@ -959,6 +1019,195 @@ def raveOff():
             drawSym(office[0], office[1], building["window"], 3, background=False)
 
 
+def mix(a, b, c):
+    h = ((a * 73856093) ^ (b * 19349663) ^ (c * 83492791)) & 0xFFFFFFFF
+    h ^= h >> 13
+    return (h * 2654435761) & 0xFFFFFFFF
+
+
+def droneColor(name):
+    if isinstance(name, tuple):  # ("neon", n)
+        return rave_colors[name[1] % len(rave_colors)][0]
+    return drone_colors[name]
+
+
+def droneFit(pts):
+    n = len(pts)
+    return [pts[(i * n) // DRONE_N] for i in range(DRONE_N)]
+
+
+def droneRocket(t):
+    pts = []
+    lift = 14.0 + t * 1.4
+    for k in range(40):
+        y = 10.0 + k * 1.0
+        pts += [(-10.0, y + lift, "SNOW"), (10.0, y + lift, "SNOW")]
+    for k in range(18): 
+        f = k / 17.0
+        pts += [
+            (-10.0 * (1.0 - f), 50.0 + f * 24.0 + lift, "ROU_RED"),
+            (10.0 * (1.0 - f), 50.0 + f * 24.0 + lift, "ROU_RED"),
+        ]
+    for k in range(14): 
+        pts.append((-10.0 + k * 1.5, 50.0 + lift, "SNOW"))
+        a = k / 14.0 * math.tau
+        pts.append((math.cos(a) * 4.0, 38.0 + math.sin(a) * 4.0 + lift, ("neon", 2)))
+    for k in range(12):  
+        f = k / 11.0
+        pts += [
+            (-10.0 - f * 11.0, 24.0 - f * 14.0 + lift, "ROU_RED"),
+            (10.0 + f * 11.0, 24.0 - f * 14.0 + lift, "ROU_RED"),
+        ]
+    for k in range(70): 
+        m = mix(k, int(t * 12.0), 7501)
+        u = ((m & 255) / 255.0 - 0.5) * 14.0 * (1.0 - (k / 70.0))
+        y = 9.0 - k * 0.32 * (0.8 + ((m >> 8) & 7) / 20.0) + lift
+        pts.append((u, y, "GOLD" if m & 3 else ("neon", 4)))
+    return pts
+
+
+def droneHeart(t):
+    beat = 1.0 + 0.08 * max(0.0, math.sin(t * 6.0)) ** 8
+
+    def heart(a, r):
+        hx = 16.0 * math.sin(a) ** 3 * r
+        hy = (
+            13.0 * math.cos(a)
+            - 5.0 * math.cos(2 * a)
+            - 2.0 * math.cos(3 * a)
+            - math.cos(4 * a)
+        ) * r
+        return hx * 3.2 * beat, 55.0 + hy * 3.0 * beat
+
+    pts = []
+    for k in range(160):
+        pts.append(heart(k / 160.0 * math.tau, 1.0) + (("neon", 0),))
+    for k in range(140):
+        m = mix(k, 3, 7503)
+        a = (m & 1023) / 1023.0 * math.tau
+        r = math.sqrt(((m >> 10) & 1023) / 1023.0) * 0.85
+        pts.append(heart(a, r) + ("ROU_RED",))
+    return pts
+
+
+def droneWheel(t):
+    pts = []
+    turn = t * 0.35
+    hub = 50.0
+    r = 34.0
+    for k in range(150):
+        a = turn + k / 150.0 * math.tau
+        color = ("neon", (k * 8 // 150 + int(t * 5.0)) % 8)
+        pts.append((math.cos(a) * r, hub + math.sin(a) * r, color))
+    for s in range(8):  # the spokes
+        a = turn + s / 8.0 * math.tau
+        for k in range(1, 6):
+            pts.append(
+                (math.cos(a) * r * k / 6.0, hub + math.sin(a) * r * k / 6.0, "STAR_DIM")
+            )
+        pts.append((math.cos(a) * r, hub + math.sin(a) * r - 4.0, "GOLD"))
+    for k in range(24):
+        f = k / 23.0
+        pts += [(-f * 22.0, hub - f * hub, "STAR_DIM"), (f * 22.0, hub - f * hub, "STAR_DIM")]
+    return pts
+
+
+def droneWord(t, word):
+    # a word in block letters, each lit dot four drones, the letters taking turns in color
+    pts = []
+    sp = 6.5
+    wide = len(word) * 4 - 1
+    for n, c in enumerate(word):
+        for r, line in enumerate(drone_font.get(c, drone_font["?"])):
+            for d, px in enumerate(line):
+                if px == " ":
+                    continue
+                for dx, dy in ((0.0, 0.0), (0.5, 0.0), (0.0, 0.5), (0.5, 0.5)):
+                    col = (n * 4 + d + dx - wide / 2.0) * sp
+                    pts.append(
+                        (col, 22.0 + (4 - r + dy) * sp * 1.3, ("neon", (n + int(t * 4.0)) % 8))
+                    )
+    return pts
+
+
+def dronePose(t, word):
+    shapes = [droneRocket, droneHeart, droneWheel, lambda tt: droneWord(tt, word)]
+    span = DRONE_HOLD + DRONE_MORPH
+    end = DRONE_RISE + len(shapes) * span - DRONE_MORPH
+
+    def at(i, tt):
+        return droneFit(shapes[i](tt))
+
+    def ease(f):
+        f = max(0.0, min(1.0, f))
+        return f * f * (3.0 - 2.0 * f)
+
+    pad = [(((i % 30) - 14.5) * 4.0, 0.4 - DRONE_BASE, "SNOW") for i in range(DRONE_N)]
+    if t < DRONE_RISE:
+        a, b, f = pad, at(0, 0.0), ease(t / DRONE_RISE)
+    elif t < end:
+        u = t - DRONE_RISE
+        i = int(u // span)
+        w = u - i * span
+        if w < DRONE_HOLD or i == len(shapes) - 1:
+            return at(i, w)
+        a, b, f = at(i, DRONE_HOLD), at(i + 1, 0.0), ease((w - DRONE_HOLD) / DRONE_MORPH)
+    elif t < end + DRONE_FALL:
+        a, b, f = at(len(shapes) - 1, DRONE_HOLD), pad, ease((t - end) / DRONE_FALL)
+    else:
+        return None
+    return [
+        (p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f, (q if f > 0.5 else p)[2])
+        for p, q in zip(a, b)
+    ]
+
+
+def droneLoop():
+    if not skyline.drones:
+        return
+
+    now = time.monotonic()
+    if now - skyline.drone_drawn < 0.03:
+        return
+    skyline.drone_drawn = now
+
+    word = DRONE_WORDS[skyline.drone_show % len(DRONE_WORDS)]
+    pose = dronePose(now - skyline.drone_start, word)
+    if pose is None:
+        droneOff()
+        return
+
+    
+    heights = sorted(building["height"] for building in skyline.buildings)
+    ground = skyline.rows - 1
+    floor = ground - heights[len(heights) // 2]
+    unit = min((floor - 1) / DRONE_TOP, (skyline.cols - 2) / (4 * DRONE_WIDE))
+    unit = max(0.02, min(DRONE_SCALE, unit))
+    cells = {}
+    for along, up, color in pose:
+        if up >= 0:
+            y = floor - up * unit
+        else:
+            y = floor + (ground - floor) * up / (0.4 - DRONE_BASE)
+        x = skyline.cols / 2 + along * 2 * unit
+        raveCell(cells, int(round(x)), int(round(y)), "o", droneColor(color))
+
+    for cell in skyline.drone_cells:
+        if cell not in cells:
+            raveRestoreCell(cell)
+    for (x, y), (char, color) in cells.items():
+        drawSym(x, y, char, color, background=False)
+    skyline.drone_cells = cells
+
+    return
+
+
+def droneOff():
+    skyline.drones = False
+    for cell in skyline.drone_cells:
+        raveRestoreCell(cell)
+    skyline.drone_cells = {}
+
 
 def main(screen):
     #####
@@ -990,6 +1239,8 @@ def main(screen):
             meteorLoop()
 
         raveLoop()
+
+        droneLoop()
 
         if skyline.debug:
             debugmsg = f"Stars:{len(skyline.stars)}/{skyline.star_max} Bldgs:{len(skyline.buildings)} Size:{skyline.cols}x{skyline.rows}"
@@ -1109,6 +1360,16 @@ def main(screen):
                 skyline.rave_start = time.monotonic()
                 skyline.star_max *= skyline.rave_star_boost
                 displayMessage("~ something over the city ~")
+        # y: toggle drone show
+        elif key == 121:
+            if skyline.drones:
+                droneOff()
+                displayMessage("Drone show OFF.")
+            else:
+                skyline.drones = True
+                skyline.drone_start = time.monotonic()
+                skyline.drone_show += 1
+                displayMessage("~ a drone show over the city ~")
         # ?: help
         elif key in [47, 63]:
             displayMessage(helpmsg)
